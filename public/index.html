@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shri Ganga Silage Ankalgi | Sugarcane Nursery, Silage & Equipment</title><link rel="stylesheet" href="/style.css"></head><body>
+<header><b>🌱 Shri Ganga Silage, Ankalgi</b><span class="nav"><a href="#shop">Shop</a><a href="#my">My orders</a><a href="#contact">Contact</a></span></header>
+<main><section class="hero"><h1>Order sugarcane seedlings, corn silage and farm equipment directly.</h1><p>Choose a product, place your order, pay cash on delivery. We confirm by phone.</p></section>
+<section id="shop"><div class="tabs" id="tabs"></div><div class="grid" id="grid">Loading…</div></section>
+<section id="my"><h2>Track your orders</h2><div style="display:flex;gap:8px;max-width:420px"><input id="ph" inputmode="tel" placeholder="Phone number used for the order"><button class="btn" onclick="track()">Show orders</button></div><div id="mine"></div></section>
+<section id="contact"><h2>Contact</h2><p>Phone: <a href="tel:+919916826717">+91 9916826717</a> · <a href="https://wa.me/919916826717">WhatsApp</a><br>Ankalgi, Belagavi, Karnataka</p></section></main>
+<footer>© Shri Ganga Silage Ankalgi</footer>
+<dialog id="dlg"><form method="dialog" id="f"><h3 id="dt"></h3><div id="dp" class="price"></div>
+<label>Quantity <span id="du"></span></label><input id="qty" type="number" min="1" value="1" required>
+<label id="dl">Needed on (date)</label><input id="date" type="date">
+<label>Your name</label><input id="nm" required maxlength="80"><label>Phone</label><input id="pn" inputmode="tel" required minlength="10">
+<label>Delivery address</label><textarea id="ad" rows="2" required></textarea><label>Note (optional)</label><input id="no">
+<p><b>Total: ₹<span id="tot">0</span></b> · Cash on delivery</p><div id="err" style="color:#b3261e"></div>
+<div style="display:flex;gap:8px"><button class="btn" id="go">Place order</button><button type="button" class="btn alt" onclick="dlg.close()">Cancel</button></div></form></dialog>
+<script>
+const $=id=>document.getElementById(id),E={sugarcane:'🌱',silage:'🌽',equipment:'🚜'},L={all:'All',sugarcane:'Sugarcane',silage:'Silage',equipment:'Equipment'};
+let all=[],cat='all',cur=null;const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function load(){all=await (await fetch('/api/products')).json();draw()}
+function draw(){$('tabs').innerHTML=Object.keys(L).map(k=>`<button class="${k==cat?'on':''}" onclick="cat='${k}';draw()">${L[k]}</button>`).join('');
+ const l=all.filter(p=>cat=='all'||p.cat==cat);$('grid').innerHTML=l.length?l.map(p=>`<div class="card">${p.img?`<img src="${esc(p.img)}" alt="${esc(p.name)}">`:`<div class="ph">${E[p.cat]}</div>`}<div><h3>${esc(p.name)}</h3><span class="price">₹${p.price} / ${esc(p.unit)}</span><p>${esc(p.desc)}</p><button class="btn" onclick="openO('${p.id}')">Order now</button></div></div>`).join(''):'Nothing available here right now.'}
+function openO(id){cur=all.find(p=>p.id==id);$('dt').textContent=cur.name;$('dp').textContent=`₹${cur.price} / ${cur.unit}`;$('du').textContent=`(${cur.unit})`;
+ $('dl').textContent=cur.cat=='equipment'?'Booking date':'Needed on (date)';$('err').textContent='';calc();$('dlg')||0;dlg.showModal()}
+const dlg=$('dlg');function calc(){$('tot').textContent=cur?(cur.price*(+$('qty').value||0)).toLocaleString('en-IN'):0}$('qty').oninput=calc;
+$('f').onsubmit=async e=>{e.preventDefault();$('go').disabled=true;
+ const r=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId:cur.id,qty:$('qty').value,date:$('date').value,name:$('nm').value,phone:$('pn').value,address:$('ad').value,note:$('no').value})});
+ const d=await r.json();$('go').disabled=false;if(!r.ok){$('err').textContent=d.error;return}
+ dlg.close();$('mine').innerHTML=`<div class="msg">Order <b>${d.id}</b> placed. Total ₹${d.total}, cash on delivery. We will call you to confirm.</div>`;$('ph').value=$('pn').value;location.hash='my'};
+async function track(){const l=await (await fetch('/api/my-orders?phone='+encodeURIComponent($('ph').value))).json();
+ $('mine').innerHTML=l.length?`<table>${l.map(o=>`<tr><td>${o.id}</td><td>${esc(o.product)} × ${o.qty}</td><td>₹${o.total}</td><td><span class="tag">${o.status}</span></td></tr>`).join('')}</table>`:'<p>No orders found for this number.</p>'}
+load()</script></body></html>

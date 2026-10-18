@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Admin | Shri Ganga Silage</title><link rel="stylesheet" href="/style.css"></head><body>
+<header><b>Admin portal</b><span class="nav" id="nav" hidden><a href="#" onclick="tab('o');return false">Orders <span id="cnt" class="tag"></span></a><a href="#" onclick="tab('p');return false">Products</a><a href="#" onclick="out();return false">Log out</a></span></header>
+<main id="m"><div id="login" style="max-width:320px"><h2>Owner login</h2><label>Password</label><input id="pw" type="password"><p><button class="btn" onclick="login()">Log in</button></p><div id="le" style="color:#b3261e"></div></div>
+<div id="app" hidden><div id="vo"></div><div id="vp" hidden></div></div></main>
+<dialog id="dlg"><form method="dialog" id="f"><h3>Product</h3><input type="hidden" id="id"><label>Name</label><input id="n" required>
+<label>Category</label><select id="c"><option value="sugarcane">Sugarcane variety</option><option value="silage">Silage</option><option value="equipment">Equipment (hourly)</option></select>
+<label>Price (₹)</label><input id="pr" type="number" min="0" step="any" required><label>Unit (kg, hour, seedling…)</label><input id="u" required>
+<label>Description</label><textarea id="d" rows="3"></textarea><label>Photo</label><input id="im" type="file" accept="image/*"><img id="pv" style="max-width:100%;margin-top:6px" alt="">
+<label><input id="a" type="checkbox" checked style="width:auto"> Available to customers</label><div id="e" style="color:#b3261e"></div>
+<p style="display:flex;gap:8px"><button class="btn" id="sv">Save product</button><button type="button" class="btn alt" onclick="dlg.close()">Cancel</button></p></form></dialog>
+<script>
+const $=id=>document.getElementById(id),dlg=$('dlg'),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api=async(u,m='GET',b)=>{const r=await fetch('/api/admin/'+u,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});if(r.status==401){show(false);throw 0}return r.json()};
+let prods=[],orders=[],seen=-1,img='';
+function show(on){$('login').hidden=on;$('app').hidden=!on;$('nav').hidden=!on}
+async function login(){const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('pw').value})});
+ if(r.ok){show(true);start()}else $('le').textContent='Wrong password'}
+async function out(){await fetch('/api/admin/logout');show(false)}
+function tab(t){$('vo').hidden=t!='o';$('vp').hidden=t!='p'}
+async function start(){await Promise.all([lo(),lp()]);setInterval(lo,15000)}
+async function lo(){orders=await api('orders');const n=orders.filter(o=>o.status=='New').length;$('cnt').textContent=n+' new';
+ if(seen>=0&&n>seen){document.title='(New order) Admin';try{new AudioContext().resume()}catch{}}seen=n;
+ $('vo').innerHTML=`<h2>Orders</h2>${orders.length?`<table><tr><th>Order</th><th>Customer</th><th class="hide">Address</th><th>Item</th><th>Status</th><th></th></tr>${orders.map(o=>`<tr><td>${o.id}<br><small>${new Date(o.created).toLocaleString()}</small></td><td>${esc(o.name)}<br><a href="tel:${o.phone}">${o.phone}</a></td><td class="hide">${esc(o.address)}${o.note?'<br><i>'+esc(o.note)+'</i>':''}</td><td>${esc(o.product)} × ${o.qty} ${esc(o.unit)}<br><b>₹${o.total}</b>${o.date?'<br>on '+o.date:''}</td>
+ <td><select onchange="st('${o.id}',this.value)">${['New','Confirmed','Delivered','Cancelled'].map(s=>`<option ${s==o.status?'selected':''}>${s}</option>`).join('')}</select></td><td><button class="btn red" onclick="delO('${o.id}')">Delete</button></td></tr>`).join('')}</table>`:'<p>No orders yet. New orders appear here automatically.</p>'}`}
+async function st(id,s){await api('orders/'+id,'PATCH',{status:s});lo()}
+async function delO(id){if(confirm('Delete this order?')){await api('orders/'+id,'DELETE');lo()}}
+async function lp(){prods=await api('products');$('vp').innerHTML=`<h2>Products & equipment</h2><p><button class="btn" onclick="ed()">Add product</button></p><table>${prods.map(p=>`<tr><td>${p.img?`<img src="${esc(p.img)}" width="50" alt="">`:''}</td><td><b>${esc(p.name)}</b><br><small>${p.cat}${p.active?'':' · hidden'}</small></td><td>₹${p.price} / ${esc(p.unit)}</td><td><button class="btn alt" onclick="ed('${p.id}')">Edit</button> <button class="btn red" onclick="delP('${p.id}')">Delete</button></td></tr>`).join('')}</table>`}
+function ed(id){const p=prods.find(x=>x.id==id)||{cat:'sugarcane',active:true,name:'',price:'',unit:'',desc:'',img:''};img=p.img;
+ $('id').value=p.id||'';$('n').value=p.name;$('c').value=p.cat;$('pr').value=p.price;$('u').value=p.unit;$('d').value=p.desc;$('a').checked=p.active;$('pv').src=p.img||'';$('im').value='';$('e').textContent='';dlg.showModal()}
+$('im').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{const k=Math.min(1,700/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);img=c.toDataURL('image/jpeg',.8);$('pv').src=img};i.src=r.result};r.readAsDataURL(f)};
+$('f').onsubmit=async e=>{e.preventDefault();const r=await api('products','POST',{id:$('id').value,name:$('n').value,cat:$('c').value,price:$('pr').value,unit:$('u').value,desc:$('d').value,img,active:$('a').checked});
+ if(r.error){$('e').textContent=r.error;return}dlg.close();lp()};
+async function delP(id){if(confirm('Delete this product?')){await api('products/'+id,'DELETE');lp()}}
+api('orders').then(()=>{show(true);start()}).catch(()=>show(false))
+</script></body></html>
